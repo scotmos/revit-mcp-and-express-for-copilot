@@ -32,8 +32,7 @@ python http_wrapper.py python your-mcp-server.py
 # Custom host and port
 python http_wrapper.py --host 0.0.0.0 --port 8080 python your-mcp-server.py
 
-# For commands with conflicting flags, use --
-python http_wrapper.py --port 3000 -- npx -y @modelcontextprotocol/server-filesystem .
+python http_wrapper.py --port 3000 npx -y @modelcontextprotocol/server-filesystem .
 ```
 
 ### Command Line Options
