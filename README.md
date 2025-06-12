@@ -13,6 +13,25 @@ MCP HTTP Wrapper - Expose stdio-based Model Context Protocol servers via HTTP us
 - ✅ **Thread Safe**: Robust concurrent request handling
 - ✅ **Error Handling**: Comprehensive error messages and port conflict detection
 
+## Docker Deployment
+
+Use `docker-compose up -d` to run. Modify these values in `docker-compose.yml` for different MCP servers:
+
+- **image**: `mcp-wrapper:filesystem` → `mcp-wrapper:your-server`
+- **container_name**: `mcp-server-filesystem` → `mcp-server-your-server`
+- **ports**: `"3000:5000"` → `"your-port:5000"`
+- **command**: MCP server command after `"--host", "0.0.0.0"`
+- **volumes**: Mount directories as needed
+
+Examples:
+```yaml
+# SQLite server
+command: ["python3", "http_wrapper.py", "--host", "0.0.0.0", "npx", "-y", "@modelcontextprotocol/server-sqlite", "/opt/data/db.sqlite"]
+
+# Git server  
+command: ["python3", "http_wrapper.py", "--host", "0.0.0.0", "npx", "-y", "@modelcontextprotocol/server-git", "--repository", "/opt/repo"]
+```
+
 ## Installation
 
 No additional dependencies required beyond Python standard library + Flask:
