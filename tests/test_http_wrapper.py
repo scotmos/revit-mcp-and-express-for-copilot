@@ -262,6 +262,144 @@ class TestMCPRequestHandling:
         assert result["id"] == 1
         assert result["result"]["tools"] == [{"name": "test_tool"}]
     
+    def test_handle_mcp_request_tools_call(self, mock_mcp_server):
+        """Test handling tools/call request"""
+        mock_mcp_server.call_tool.return_value = {
+            "jsonrpc": "2.0",
+            "result": {"content": "tool output"},
+            "id": "1"
+        }
+        
+        request_data = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": "test_tool",
+                "arguments": {"arg1": "value1"}
+            },
+            "id": 1
+        }
+        
+        result = handle_mcp_request(request_data)
+        assert result["jsonrpc"] == "2.0"
+        assert result["id"] == 1
+        assert result["result"]["content"] == "tool output"
+        mock_mcp_server.call_tool.assert_called_once_with("test_tool", {"arg1": "value1"})
+    
+    def test_handle_mcp_request_tools_call_missing_name(self, mock_mcp_server):
+        """Test handling tools/call request with missing name parameter"""
+        request_data = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {"arguments": {"arg1": "value1"}},
+            "id": 1
+        }
+        
+        result = handle_mcp_request(request_data)
+        assert result["error"]["code"] == -32602
+        assert "name" in result["error"]["data"]
+    
+    def test_handle_mcp_request_prompts_list(self, mock_mcp_server):
+        """Test handling prompts/list request"""
+        mock_mcp_server.prompts = [{"name": "test_prompt"}]
+        
+        request_data = {
+            "jsonrpc": "2.0",
+            "method": "prompts/list",
+            "id": 1
+        }
+        
+        result = handle_mcp_request(request_data)
+        assert result["jsonrpc"] == "2.0"
+        assert result["id"] == 1
+        assert result["result"]["prompts"] == [{"name": "test_prompt"}]
+    
+    def test_handle_mcp_request_prompts_get(self, mock_mcp_server):
+        """Test handling prompts/get request"""
+        mock_mcp_server.get_prompt.return_value = {
+            "jsonrpc": "2.0",
+            "result": {"messages": [{"role": "user", "content": "test prompt"}]},
+            "id": "1"
+        }
+        
+        request_data = {
+            "jsonrpc": "2.0",
+            "method": "prompts/get",
+            "params": {
+                "name": "test_prompt",
+                "arguments": {"lang": "python"}
+            },
+            "id": 1
+        }
+        
+        result = handle_mcp_request(request_data)
+        assert result["jsonrpc"] == "2.0"
+        assert result["id"] == 1
+        assert result["result"]["messages"][0]["content"] == "test prompt"
+        mock_mcp_server.get_prompt.assert_called_once_with("test_prompt", {"lang": "python"})
+    
+    def test_handle_mcp_request_prompts_get_missing_name(self, mock_mcp_server):
+        """Test handling prompts/get request with missing name parameter"""
+        request_data = {
+            "jsonrpc": "2.0",
+            "method": "prompts/get",
+            "params": {"arguments": {"lang": "python"}},
+            "id": 1
+        }
+        
+        result = handle_mcp_request(request_data)
+        assert result["error"]["code"] == -32602
+        assert "name" in result["error"]["data"]
+    
+    def test_handle_mcp_request_resources_list(self, mock_mcp_server):
+        """Test handling resources/list request"""
+        mock_mcp_server.resources = [{"uri": "file://test.txt"}]
+        
+        request_data = {
+            "jsonrpc": "2.0",
+            "method": "resources/list",
+            "id": 1
+        }
+        
+        result = handle_mcp_request(request_data)
+        assert result["jsonrpc"] == "2.0"
+        assert result["id"] == 1
+        assert result["result"]["resources"] == [{"uri": "file://test.txt"}]
+    
+    def test_handle_mcp_request_resources_read(self, mock_mcp_server):
+        """Test handling resources/read request"""
+        mock_mcp_server.read_resource.return_value = {
+            "jsonrpc": "2.0",
+            "result": {"contents": [{"uri": "file://test.txt", "text": "file content"}]},
+            "id": "1"
+        }
+        
+        request_data = {
+            "jsonrpc": "2.0",
+            "method": "resources/read",
+            "params": {"uri": "file://test.txt"},
+            "id": 1
+        }
+        
+        result = handle_mcp_request(request_data)
+        assert result["jsonrpc"] == "2.0"
+        assert result["id"] == 1
+        assert result["result"]["contents"][0]["text"] == "file content"
+        mock_mcp_server.read_resource.assert_called_once_with("file://test.txt")
+    
+    def test_handle_mcp_request_resources_read_missing_uri(self, mock_mcp_server):
+        """Test handling resources/read request with missing uri parameter"""
+        request_data = {
+            "jsonrpc": "2.0",
+            "method": "resources/read",
+            "params": {},
+            "id": 1
+        }
+        
+        result = handle_mcp_request(request_data)
+        assert result["error"]["code"] == -32602
+        assert "uri" in result["error"]["data"]
+    
     def test_handle_mcp_request_unknown_method(self, mock_mcp_server):
         """Test handling unknown method"""
         request_data = {
