@@ -36,12 +36,60 @@ def client():
 
 @pytest.fixture
 def mock_mcp_server():
-    """Mock MCP server process"""
+    """Mock MCP server process with test data"""
     with patch('http_wrapper.mcp_server') as mock_server:
         mock_server.running = True
-        mock_server.tools = []
-        mock_server.prompts = []
-        mock_server.resources = []
+        mock_server.tools = [
+            {
+                "name": "read_file",
+                "description": "Read a file from the filesystem",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"path": {"type": "string"}},
+                    "required": ["path"]
+                }
+            },
+            {
+                "name": "write_file", 
+                "description": "Write content to a file",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string"},
+                        "content": {"type": "string"}
+                    },
+                    "required": ["path", "content"]
+                }
+            }
+        ]
+        mock_server.prompts = [
+            {
+                "name": "code_review",
+                "description": "Review code for quality and issues",
+                "arguments": [
+                    {"name": "language", "description": "Programming language", "required": True}
+                ]
+            },
+            {
+                "name": "git_commit",
+                "description": "Generate a git commit message",
+                "arguments": [
+                    {"name": "diff", "description": "Git diff content", "required": True}
+                ]
+            }
+        ]
+        mock_server.resources = [
+            {
+                "uri": "file:///home/user/project/README.md",
+                "name": "Project README",
+                "description": "Main project documentation"
+            },
+            {
+                "uri": "file:///home/user/project/src/main.py", 
+                "name": "Main source file",
+                "description": "Primary application entry point"
+            }
+        ]
         mock_server.server_info = {"name": "test-server", "version": "1.0"}
         yield mock_server
 
@@ -249,8 +297,6 @@ class TestMCPRequestHandling:
     
     def test_handle_mcp_request_tools_list(self, mock_mcp_server):
         """Test handling tools/list request"""
-        mock_mcp_server.tools = [{"name": "test_tool"}]
-        
         request_data = {
             "jsonrpc": "2.0",
             "method": "tools/list",
@@ -260,7 +306,11 @@ class TestMCPRequestHandling:
         result = handle_mcp_request(request_data)
         assert result["jsonrpc"] == "2.0"
         assert result["id"] == 1
-        assert result["result"]["tools"] == [{"name": "test_tool"}]
+        assert len(result["result"]["tools"]) == 2
+        assert result["result"]["tools"][0]["name"] == "read_file"
+        assert result["result"]["tools"][1]["name"] == "write_file"
+        assert "description" in result["result"]["tools"][0]
+        assert "inputSchema" in result["result"]["tools"][0]
     
     def test_handle_mcp_request_tools_call(self, mock_mcp_server):
         """Test handling tools/call request"""
@@ -301,8 +351,6 @@ class TestMCPRequestHandling:
     
     def test_handle_mcp_request_prompts_list(self, mock_mcp_server):
         """Test handling prompts/list request"""
-        mock_mcp_server.prompts = [{"name": "test_prompt"}]
-        
         request_data = {
             "jsonrpc": "2.0",
             "method": "prompts/list",
@@ -312,7 +360,11 @@ class TestMCPRequestHandling:
         result = handle_mcp_request(request_data)
         assert result["jsonrpc"] == "2.0"
         assert result["id"] == 1
-        assert result["result"]["prompts"] == [{"name": "test_prompt"}]
+        assert len(result["result"]["prompts"]) == 2
+        assert result["result"]["prompts"][0]["name"] == "code_review"
+        assert result["result"]["prompts"][1]["name"] == "git_commit"
+        assert "description" in result["result"]["prompts"][0]
+        assert "arguments" in result["result"]["prompts"][0]
     
     def test_handle_mcp_request_prompts_get(self, mock_mcp_server):
         """Test handling prompts/get request"""
@@ -353,8 +405,6 @@ class TestMCPRequestHandling:
     
     def test_handle_mcp_request_resources_list(self, mock_mcp_server):
         """Test handling resources/list request"""
-        mock_mcp_server.resources = [{"uri": "file://test.txt"}]
-        
         request_data = {
             "jsonrpc": "2.0",
             "method": "resources/list",
@@ -364,7 +414,11 @@ class TestMCPRequestHandling:
         result = handle_mcp_request(request_data)
         assert result["jsonrpc"] == "2.0"
         assert result["id"] == 1
-        assert result["result"]["resources"] == [{"uri": "file://test.txt"}]
+        assert len(result["result"]["resources"]) == 2
+        assert result["result"]["resources"][0]["uri"] == "file:///home/user/project/README.md"
+        assert result["result"]["resources"][1]["uri"] == "file:///home/user/project/src/main.py"
+        assert "name" in result["result"]["resources"][0]
+        assert "description" in result["result"]["resources"][0]
     
     def test_handle_mcp_request_resources_read(self, mock_mcp_server):
         """Test handling resources/read request"""
