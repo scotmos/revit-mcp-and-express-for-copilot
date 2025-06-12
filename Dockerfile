@@ -12,6 +12,8 @@ RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
     /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
 COPY http_wrapper.py .
 
 RUN mkdir -p /opt/mcp-data && chmod 777 /opt/mcp-data
