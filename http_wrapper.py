@@ -14,6 +14,8 @@ from dataclasses import dataclass, asdict
 from flask import Flask, request, jsonify, Response
 import logging
 from threading import Lock, Event
+import queue
+import uuid
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)  # Changed to DEBUG for more verbose output
@@ -400,6 +402,8 @@ app = Flask(__name__)
 
 # Session management
 sessions = {}
+# SSE message queues for each session
+sse_queues = {}
 
 
 def create_jsonrpc_response(result=None, error=None, request_id=None):
@@ -546,6 +550,43 @@ def handle_mcp_request(data, session_id=None):
         return create_jsonrpc_error(-32603, "Internal error", str(e), request_id)
 
 
+def handle_sse_request(initial_response, session_id, origin):
+    """Handle MCP request with SSE response"""
+    # Create a queue for this session if it doesn't exist
+    if session_id not in sse_queues:
+        sse_queues[session_id] = queue.Queue()
+    
+    def event_stream():
+        # Send the initial response
+        yield f"data: {json.dumps(initial_response)}\n\n"
+        
+        # Keep connection alive and handle any additional messages
+        while True:
+            try:
+                # Check for messages in the queue (with timeout)
+                message = sse_queues[session_id].get(timeout=30)
+                yield f"data: {json.dumps(message)}\n\n"
+            except queue.Empty:
+                # Send heartbeat if no messages
+                yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': time.time()})}\n\n"
+            except Exception:
+                # Connection closed
+                break
+        
+        # Clean up when connection closes
+        if session_id in sse_queues:
+            del sse_queues[session_id]
+    
+    response_obj = Response(event_stream(), mimetype='text/event-stream')
+    response_obj.headers['Cache-Control'] = 'no-cache'
+    response_obj.headers['Connection'] = 'keep-alive'
+    response_obj.headers['Access-Control-Allow-Origin'] = origin or '*'
+    response_obj.headers['Access-Control-Allow-Headers'] = 'Content-Type, Mcp-Session-Id'
+    response_obj.headers['Mcp-Session-Id'] = session_id
+    
+    return response_obj
+
+
 @app.route('/mcp', methods=['POST'])
 def mcp_post():
     """MCP Streamable HTTP POST endpoint"""
@@ -554,26 +595,49 @@ def mcp_post():
     if not validate_origin(origin):
         return jsonify(create_jsonrpc_error(-32603, "Invalid Origin header")), 403
     
-    # Get session ID if provided
+    # Get or create session ID
     session_id = request.headers.get('Mcp-Session-Id')
+    if not session_id:
+        session_id = str(uuid.uuid4())
+    
+    # Check if client wants SSE response
+    accept_header = request.headers.get('Accept', '')
+    wants_sse = 'text/event-stream' in accept_header
     
     try:
         data = request.get_json()
     except Exception as e:
-        return jsonify(create_jsonrpc_error(-32700, "Parse error", str(e))), 400
+        error_response = create_jsonrpc_error(-32700, "Parse error", str(e))
+        if wants_sse:
+            return handle_sse_request(error_response, session_id, origin)
+        return jsonify(error_response), 400
     
     if not data:
-        return jsonify(create_jsonrpc_error(-32600, "Invalid Request", "Empty request body")), 400
+        error_response = create_jsonrpc_error(-32600, "Invalid Request", "Empty request body")
+        if wants_sse:
+            return handle_sse_request(error_response, session_id, origin)
+        return jsonify(error_response), 400
     
     # Handle the request
     response_data = handle_mcp_request(data, session_id)
     
-    # Set session ID in response if provided
-    response = jsonify(response_data)
-    if session_id:
+    if wants_sse:
+        # Return response via SSE
+        return handle_sse_request(response_data, session_id, origin)
+    else:
+        # Check if there's an active SSE connection for this session
+        if session_id in sse_queues:
+            # Send response via existing SSE connection
+            try:
+                sse_queues[session_id].put(response_data, timeout=1)
+                return jsonify({"status": "sent_via_sse"}), 200
+            except queue.Full:
+                pass  # Fall back to JSON response
+        
+        # Return JSON response
+        response = jsonify(response_data)
         response.headers['Mcp-Session-Id'] = session_id
-    
-    return response
+        return response
 
 
 @app.route('/mcp', methods=['GET'])
@@ -584,29 +648,40 @@ def mcp_get():
     if not validate_origin(origin):
         return "Invalid Origin header", 403
     
-    # Get session ID if provided
+    # Get or create session ID
     session_id = request.headers.get('Mcp-Session-Id')
+    if not session_id:
+        session_id = str(uuid.uuid4())
+    
+    # Create a queue for this session
+    if session_id not in sse_queues:
+        sse_queues[session_id] = queue.Queue()
     
     def event_stream():
         """Generate Server-Sent Events"""
-        # Send initial connection event
-        yield f"data: {json.dumps({'type': 'connection', 'status': 'connected'})}\n\n"
-        
-        # Keep connection alive
-        import time
-        while True:
-            # Send periodic heartbeat
-            yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': time.time()})}\n\n"
-            time.sleep(30)  # Heartbeat every 30 seconds
+        try:
+            while True:
+                try:
+                    # Wait for messages in the queue
+                    message = sse_queues[session_id].get(timeout=30)
+                    yield f"data: {json.dumps(message)}\n\n"
+                except queue.Empty:
+                    # Send heartbeat if no messages
+                    yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': time.time()})}\n\n"
+        except Exception:
+            # Connection closed
+            pass
+        finally:
+            # Clean up when connection closes
+            if session_id in sse_queues:
+                del sse_queues[session_id]
     
     response = Response(event_stream(), mimetype='text/event-stream')
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['Connection'] = 'keep-alive'
     response.headers['Access-Control-Allow-Origin'] = origin or '*'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Mcp-Session-Id'
-    
-    if session_id:
-        response.headers['Mcp-Session-Id'] = session_id
+    response.headers['Mcp-Session-Id'] = session_id
     
     return response
 
