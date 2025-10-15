@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2025 Scott Moseley
+Copyright (c) 2025 Moses Scott
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -35,4 +35,4 @@ Repository: https://github.com/revit-mcp/revit-mcp-plugin
 License: MIT License
 
 The simple_rest_api.py implementation and grading command extensions are 
-original works by Scott Moseley, licensed under MIT (as above).
+original works by Moses Scott, licensed under MIT (as above).
