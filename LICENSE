@@ -29,5 +29,10 @@ mcp-wrapper-http by DougBourban
 Repository: https://github.com/DougBourban/mcp-wrapper-http
 License: GNU General Public License v3.0
 
-The simple_rest_api.py implementation is an original work by Scott Moseley,
-licensed under MIT (as above).
+The Revit MCP plugin architecture and core components are based on:
+revit-mcp-plugin by revit-mcp
+Repository: https://github.com/revit-mcp/revit-mcp-plugin
+License: MIT License
+
+The simple_rest_api.py implementation and grading command extensions are 
+original works by Scott Moseley, licensed under MIT (as above).
