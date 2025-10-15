@@ -115,7 +115,7 @@ This project provides a complete integration platform that connects **Autodesk R
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/DougBourban/revit-mcp-copilot-integration.git
+   git clone https://github.com/scotmos/revit-mcp-copilot-integration.git
    cd revit-mcp-copilot-integration
    ```
 
@@ -267,8 +267,8 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file for
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/DougBourban/revit-mcp-copilot-integration/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/DougBourban/revit-mcp-copilot-integration/discussions)
+- **Issues**: [GitHub Issues](https://github.com/scotmos/revit-mcp-copilot-integration/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/scotmos/revit-mcp-copilot-integration/discussions)
 - **Email**: support@example.com
 
 ## 🗺️ Roadmap
