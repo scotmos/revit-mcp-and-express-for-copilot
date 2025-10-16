@@ -1,0 +1,92 @@
+﻿node : σ╖▓µ│¿σåîσ╖Ñσà╖: ai_element_filter.js
+At line:1 char:31
++ ... rade.json | node 
+"c:\Users\ScottM\source\repos\MCP\revit-mcp\build\in ...
++                 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (σ╖▓µ│¿σåîσ╖Ñσà╖: ai_el 
+   ement_filter.js:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+σ╖▓µ│¿σåîσ╖Ñσà╖: check_geometry_type.js
+σ╖▓µ│¿σåîσ╖Ñσà╖: check_geometry_type_detailed.js
+σ╖▓µ│¿σåîσ╖Ñσà╖: color_elements.js
+σ╖▓µ│¿σåîσ╖Ñσà╖: createWall.js
+σ╖▓µ│¿σåîσ╖Ñσà╖: create_line_based_element.js
+σ╖▓µ│¿σåîσ╖Ñσà╖: create_point_based_element.js
+σ╖▓µ│¿σåîσ╖Ñσà╖: create_surface_based_element.js
+σ╖▓µ│¿σåîσ╖Ñσà╖: delete_element.js
+σ╖▓µ│¿σåîσ╖Ñσà╖: get_available_family_types.js
+σ╖▓µ│¿σåîσ╖Ñσà╖: get_current_view_elements.js
+σ╖▓µ│¿σåîσ╖Ñσà╖: get_current_view_info.js
+σ╖▓µ│¿σåîσ╖Ñσà╖: get_selected_elements.js
+σ╖▓µ│¿σåîσ╖Ñσà╖: grade_all_families_by_category.js
+Φ¡ªσæè: σ£¿µûçΣ╗╢ modify_element.js Σ╕¡µ£¬µë╛σê░µ│¿σåîσç╜µò░
+σ╖▓µ│¿σåîσ╖Ñσà╖: operate_element.js
+Φ¡ªσæè: σ£¿µûçΣ╗╢ search_modules.js Σ╕¡µ£¬µë╛σê░µ│¿σåîσç╜µò░
+σ╖▓µ│¿σåîσ╖Ñσà╖: send_code_to_revit.js
+σ╖▓µ│¿σåîσ╖Ñσà╖: tag_all_walls.js
+Φ¡ªσæè: σ£¿µûçΣ╗╢ use_module.js Σ╕¡µ£¬µë╛σê░µ│¿σåîσç╜µò░
+Revit MCP Server start success
+{"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"revit-mcp","version":"1.0.0"}},"jsonrpc":"2.0","id":1}
+≡ƒôè Grading all families (Category: Doors, Type: quick)...
+Response from Revit: {
+  "success": true,
+  "totalElements": 2,
+  "categories": [
+    [
+      {
+        "name": "Doors",
+        "count": 2,
+        "avgScore": 99
+      }
+    ]
+  ],
+  "gradeDistribution": {
+    "A": 2,
+    "B": 0,
+    "C": 0,
+    "D": 0,
+    "F": 0,
+    "ERROR": 0
+  },
+  "avgScore": 99,
+  "csvFilePath": "C:\\Users\\ScottM\\AppData\\Local\\Temp\\c19bb0bf-
+20e7-47e6-8315-b448b5f67d5d\\RevitFamilyGrades_Project1_20251016_175
+013.csv",
+  "csvContent": "Category,FamilyName,TypeName,ElementId,UniqueId,Ove
+rallGrade,OverallScore,TotalFaces,SolidCount,MeshCount,FamilyHash,To
+pRecommendation\r\nDoors,Door-Passage-Single-Flush,36\"\" x 84\"\",1
+200233,cebd57b4-cca6-4250-b508-89a97e9345d7-00125069,A,99,48,6,0,6e2
+1e8ef2519f650,\"No 
+recommendations\"\r\nDoors,Door-Passage-Single-Flush,36\"\" x 84\"\"
+,1200265,cebd57b4-cca6-4250-b508-89a97e9345d7-00125089,A,99,48,6,0,6
+e21e8ef2519f650,\"No recommendations\"\r\n",
+  "revitFileName": "Project1",
+  "timestamp": "2025-10-16 17:50:13",
+  "summaryStats": {
+    "categories": [
+      {
+        "name": "Doors",
+        "count": 2,
+        "avgScore": 99
+      }
+    ],
+    "gradeDistribution": {
+      "A": 2,
+      "B": 0,
+      "C": 0,
+      "D": 0,
+      "F": 0,
+      "ERROR": 0
+    },
+    "avgScore": 99,
+    "topIssues": [],
+    "importSourceBreakdown": {
+      "nativeRevit": 2,
+      "satImports": 0,
+      "meshImports": 0
+    }
+  }
+}
+{"result":{"content":[{"type":"text","text":"Γ¥î Failed to grade families: Unknown error"}],"isError":true},"jsonrpc":"2.0","id":2}

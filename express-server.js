@@ -80,6 +80,7 @@ async function callMCPGrading(category, gradeType, includeTypes, outputPath = ''
 
         let stdout = '';
         let stderr = '';
+        let resolved = false;
 
         // Set timeout
         const timer = setTimeout(() => {
@@ -93,13 +94,53 @@ async function callMCPGrading(category, gradeType, includeTypes, outputPath = ''
             stdout += data.toString();
         });
 
-        // Collect stderr
+        // Collect stderr and check for Revit response immediately
         nodeProcess.stderr.on('data', (data) => {
             stderr += data.toString();
+            
+            // Check if we have the complete "Response from Revit:" output
+            // The JSON can be multi-line and nested, so we need to find the complete object
+            const revitResponseStart = stderr.indexOf('Response from Revit: ');
+            if (revitResponseStart !== -1 && !resolved) {
+                const jsonStart = revitResponseStart + 'Response from Revit: '.length;
+                const jsonStr = stderr.substring(jsonStart);
+                
+                // Try to parse - if successful, we have the complete JSON
+                try {
+                    const response = JSON.parse(jsonStr);
+                    // If we successfully parsed, we got the complete response
+                    resolved = true;
+                    
+                    log(`Parsed response structure: ${JSON.stringify(Object.keys(response))}`);
+                    
+                    if (response.success && response.data) {
+                        log('Successfully parsed Revit response from stderr');
+                        clearTimeout(timer);
+                        nodeProcess.kill();
+                        return resolve(response.data);
+                    } else if (response.success) {
+                        // Response is successful but data is at top level, not nested
+                        log('Response successful with flat structure');
+                        clearTimeout(timer);
+                        nodeProcess.kill();
+                        return resolve(response);
+                    } else {
+                        log('Revit returned unsuccessful response', 'ERROR');
+                        clearTimeout(timer);
+                        nodeProcess.kill();
+                        return reject(new Error(response.error || 'Unknown error'));
+                    }
+                } catch (e) {
+                    // JSON not complete yet, wait for more data
+                    // Don't log this error - it's expected until we get the full JSON
+                }
+            }
         });
 
         // Handle completion
         nodeProcess.on('close', (code) => {
+            if (resolved) return; // Already handled in stderr handler
+            
             clearTimeout(timer);
 
             if (timedOut) return;
@@ -111,7 +152,30 @@ async function callMCPGrading(category, gradeType, includeTypes, outputPath = ''
             }
 
             try {
-                // Parse output - look for the response with id=2
+                // First, look for "Response from Revit:" in stderr (debug output)
+                const revitResponseMatch = stderr.match(/Response from Revit: (\{[\s\S]*?\})\n/);
+                if (revitResponseMatch) {
+                    try {
+                        const response = JSON.parse(revitResponseMatch[1]);
+                        if (response.success && response.data) {
+                            log('Successfully parsed Revit response from stderr');
+                            // Kill the subprocess since we got what we need
+                            clearTimeout(timer);
+                            nodeProcess.kill();
+                            // Return the actual data object
+                            return resolve(response.data);
+                        } else {
+                            log('Revit returned unsuccessful response', 'ERROR');
+                            clearTimeout(timer);
+                            nodeProcess.kill();
+                            return reject(new Error(response.error || 'Unknown error'));
+                        }
+                    } catch (e) {
+                        log(`Failed to parse Revit response: ${e.message}`, 'ERROR');
+                    }
+                }
+                
+                // Fallback: Parse output - look for the response with id=2
                 const lines = stdout.split('\n').filter(line => line.trim());
                 
                 for (const line of lines) {
@@ -225,6 +289,66 @@ app.post('/api/grade-families', async (req, res) => {
     
     try {
         // Extract parameters with defaults
+        const {
+            category = 'All',
+            gradeType = 'detailed',
+            includeTypes = true,
+            outputPath = ''
+        } = req.body;
+
+        log(`Received grading request: category=${category}, gradeType=${gradeType}, includeTypes=${includeTypes}`);
+
+        // Validate inputs
+        if (!['quick', 'detailed'].includes(gradeType)) {
+            return res.status(400).json({
+                success: false,
+                error: 'gradeType must be "quick" or "detailed"'
+            });
+        }
+
+        // Call MCP grading
+        const result = await callMCPGrading(category, gradeType, includeTypes, outputPath);
+
+        const duration = Date.now() - startTime;
+        log(`Grading completed successfully in ${duration}ms: ${result.totalElements} elements, avg ${result.avgScore}`);
+
+        // Return standardized response
+        res.json({
+            success: true,
+            totalElements: result.totalElements || 0,
+            avgScore: result.avgScore || 0,
+            csvFilePath: result.csvFilePath || '',
+            gradeDistribution: result.gradeDistribution || {},
+            categories: result.categories || [category],
+            timestamp: result.timestamp || new Date().toISOString(),
+            revitFileName: result.revitFileName || '',
+            duration: duration
+        });
+
+    } catch (error) {
+        const duration = Date.now() - startTime;
+        log(`Grading failed after ${duration}ms: ${error.message}`, 'ERROR');
+
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            duration: duration
+        });
+    }
+});
+
+/**
+ * POST /api/tools/grade_all_families_by_category
+ * BACKWARD COMPATIBILITY: Old Flask endpoint
+ * Redirects to new endpoint for compatibility with existing Copilot Studio connectors
+ */
+app.post('/api/tools/grade_all_families_by_category', async (req, res) => {
+    log('Received request on old Flask endpoint - forwarding to new endpoint');
+    
+    const startTime = Date.now();
+    
+    try {
+        // Extract parameters with defaults (same as new endpoint)
         const {
             category = 'All',
             gradeType = 'detailed',
