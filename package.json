@@ -1,0 +1,36 @@
+{
+  "name": "revit-mcp-express-server",
+  "version": "2.0.0",
+  "description": "Express HTTP server for Revit MCP family grading - works with Power Automate and Copilot Actions",
+  "main": "express-server.js",
+  "scripts": {
+    "start": "node express-server.js",
+    "dev": "nodemon express-server.js",
+    "test": "node test-express.js"
+  },
+  "keywords": [
+    "revit",
+    "mcp",
+    "express",
+    "power-automate",
+    "copilot-actions",
+    "bim",
+    "grading"
+  ],
+  "author": "Moses Scott (scotmos)",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scotmos/revit-mcp-copilot-integration.git"
+  }
+}
