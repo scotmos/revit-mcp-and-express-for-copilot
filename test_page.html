@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revit MCP Server Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0078d4;
+            border-bottom: 3px solid #0078d4;
+            padding-bottom: 10px;
+        }
+        .endpoint {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+        }
+        button {
+            background: #0078d4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .result {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #107c10;
+        }
+        .error {
+            color: #d13438;
+        }
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin-left: 10px;
+        }
+        .status.online {
+            background: #107c10;
+            color: white;
+        }
+        .status.offline {
+            background: #d13438;
+            color: white;
+        }
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .tool-card {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 3px solid #0078d4;
+        }
+        .tool-name {
+            font-weight: bold;
+            color: #0078d4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏗️ Revit MCP Server Test Page</h1>
+        
+        <div class="endpoint">
+            <strong>Public Endpoint:</strong> https://6c701ec65166.ngrok-free.app
+            <span id="status" class="status offline">Checking...</span>
+        </div>
+
+        <h2>Quick Tests</h2>
+        <div>
+            <button onclick="testHealth()">🔍 Health Check</button>
+            <button onclick="testViewInfo()">📐 Get Current View Info</button>
+            <button onclick="testWalls()">🧱 Get Walls in View</button>
+            <button onclick="testFamilies()">👨‍👩‍👧‍👦 Get Family Types</button>
+        </div>
+
+        <h2>Advanced Tests</h2>
+        <div>
+            <button onclick="testCheckGeometry()">🔬 Check Geometry Type (needs ID)</button>
+            <button onclick="testSelectedElements()">✅ Get Selected Elements</button>
+        </div>
+
+        <div id="result" class="result" style="display:none;">
+            <h3>Result:</h3>
+            <pre id="output"></pre>
+        </div>
+
+        <h2>Available Tools (16)</h2>
+        <div class="tool-grid">
+            <div class="tool-card">
+                <div class="tool-name">get_current_view_info</div>
+                <div>Get current view details</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">get_current_view_elements</div>
+                <div>Get elements in view</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">check_geometry_type</div>
+                <div>Check if mesh or solid ⭐ NEW</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">get_available_family_types</div>
+                <div>List family types</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">get_selected_elements</div>
+                <div>Get selected elements</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">create_line_based_element</div>
+                <div>Create walls, beams, pipes</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">create_point_based_element</div>
+                <div>Create doors, windows</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">create_surface_based_element</div>
+                <div>Create floors, ceilings</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">delete_element</div>
+                <div>Delete elements</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">operate_element</div>
+                <div>Select, hide, color elements</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">ai_element_filter</div>
+                <div>AI-powered filtering</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">color_elements</div>
+                <div>Color by parameter</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">tag_all_walls</div>
+                <div>Tag all walls</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">send_code_to_revit</div>
+                <div>Execute C# code</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">createWall</div>
+                <div>Simple wall creation</div>
+            </div>
+            <div class="tool-card">
+                <div class="tool-name">use_module</div>
+                <div>Use search modules</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://6c701ec65166.ngrok-free.app';
+
+        // Check status on load
+        window.onload = function() {
+            testHealth(true);
+        };
+
+        async function callMCP(method, params = {}) {
+            const body = {
+                jsonrpc: '2.0',
+                method: method,
+                params: params,
+                id: Date.now().toString()
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/mcp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                throw new Error(`Network error: ${error.message}`);
+            }
+        }
+
+        async function testHealth(silent = false) {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                
+                if (data.status === 'running') {
+                    document.getElementById('status').className = 'status online';
+                    document.getElementById('status').textContent = 'Online ✓';
+                    if (!silent) showResult({ success: true, data: data });
+                } else {
+                    document.getElementById('status').className = 'status offline';
+                    document.getElementById('status').textContent = 'Offline ✗';
+                }
+            } catch (error) {
+                document.getElementById('status').className = 'status offline';
+                document.getElementById('status').textContent = 'Offline ✗';
+                if (!silent) showResult({ success: false, error: error.message });
+            }
+        }
+
+        async function testViewInfo() {
+            try {
+                const result = await callMCP('tools/call', {
+                    name: 'get_current_view_info',
+                    arguments: {}
+                });
+                showResult({ success: !result.error, data: result });
+            } catch (error) {
+                showResult({ success: false, error: error.message });
+            }
+        }
+
+        async function testWalls() {
+            try {
+                const result = await callMCP('tools/call', {
+                    name: 'get_current_view_elements',
+                    arguments: {
+                        modelCategoryList: ['OST_Walls'],
+                        limit: 5
+                    }
+                });
+                showResult({ success: !result.error, data: result });
+            } catch (error) {
+                showResult({ success: false, error: error.message });
+            }
+        }
+
+        async function testFamilies() {
+            try {
+                const result = await callMCP('tools/call', {
+                    name: 'get_available_family_types',
+                    arguments: {
+                        limit: 5
+                    }
+                });
+                showResult({ success: !result.error, data: result });
+            } catch (error) {
+                showResult({ success: false, error: error.message });
+            }
+        }
+
+        async function testCheckGeometry() {
+            const elementId = prompt('Enter Element ID:', '12345');
+            if (!elementId) return;
+
+            try {
+                const result = await callMCP('tools/call', {
+                    name: 'check_geometry_type',
+                    arguments: {
+                        elementId: elementId
+                    }
+                });
+                showResult({ success: !result.error, data: result });
+            } catch (error) {
+                showResult({ success: false, error: error.message });
+            }
+        }
+
+        async function testSelectedElements() {
+            try {
+                const result = await callMCP('tools/call', {
+                    name: 'get_selected_elements',
+                    arguments: {
+                        limit: 10
+                    }
+                });
+                showResult({ success: !result.error, data: result });
+            } catch (error) {
+                showResult({ success: false, error: error.message });
+            }
+        }
+
+        function showResult(result) {
+            const resultDiv = document.getElementById('result');
+            const output = document.getElementById('output');
+            
+            resultDiv.style.display = 'block';
+            
+            if (result.success) {
+                output.className = 'success';
+                output.textContent = JSON.stringify(result.data, null, 2);
+            } else {
+                output.className = 'error';
+                output.textContent = 'Error: ' + (result.error || JSON.stringify(result.data, null, 2));
+            }
+        }
+    </script>
+</body>
+</html>

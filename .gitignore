@@ -48,6 +48,16 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
+
+# Test files (keep templates, ignore actual test data)
+grade_test.json
+test_windows.json
+
+# ngrok
+ngrok.exe
+ngrok
+.ngrok*
+
 .pytest_cache/
 cover/
 

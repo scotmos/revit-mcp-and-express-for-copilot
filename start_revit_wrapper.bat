@@ -1,0 +1,3 @@
+@echo off
+echo Starting Revit MCP HTTP Wrapper...
+python http_wrapper.py --host 0.0.0.0 --port 5000 node "C:\Users\ScottM\source\repos\MCP\revit-mcp\build\index.js"

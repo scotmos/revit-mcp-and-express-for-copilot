@@ -59,6 +59,8 @@ class MCPServerProcess:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                encoding='utf-8',
+                errors='replace',
                 bufsize=0
             )
             self.running = True
@@ -444,9 +446,49 @@ def validate_origin(origin):
     return False
 
 
+def ensure_server_running():
+    """Ensure MCP server is running, restart if needed"""
+    global mcp_server
+    
+    # Check if server exists and is running
+    if mcp_server and mcp_server.running:
+        # Check if process is still alive
+        if mcp_server.process and mcp_server.process.poll() is None:
+            return True  # Server is healthy
+    
+    # Server is dead or never started, restart it
+    logger.warning("MCP server is not running, restarting...")
+    
+    try:
+        # Stop existing server if any
+        if mcp_server:
+            try:
+                mcp_server.stop()
+            except:
+                pass
+        
+        # Get the command from args
+        import sys
+        if len(sys.argv) < 2:
+            logger.error("No MCP server command provided")
+            return False
+        
+        # Recreate and start the server
+        command = sys.argv[1:]
+        mcp_server = MCPServerProcess(command)
+        mcp_server.start()
+        logger.info("MCP server successfully restarted")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to restart MCP server: {e}")
+        return False
+
+
 def handle_mcp_request(data, session_id=None):
     """Handle MCP JSON-RPC request"""
-    if not mcp_server or not mcp_server.running:
+    # Ensure server is running before handling request
+    if not ensure_server_running():
         return create_jsonrpc_error(-32603, "MCP server not running")
     
     # Validate JSON-RPC format
