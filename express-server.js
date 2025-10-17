@@ -290,6 +290,9 @@ app.post('/api/grade-families-async', async (req, res) => {
             outputPath = ''
         } = req.body;
 
+        // Log the incoming request for debugging
+        log(`Async job request received: category="${category}", gradeType="${gradeType}"`);
+
         // Validate inputs
         if (!['quick', 'detailed'].includes(gradeType)) {
             return res.status(400).json({
@@ -298,14 +301,38 @@ app.post('/api/grade-families-async', async (req, res) => {
             });
         }
 
+        // Normalize category name (handle common variations)
+        let normalizedCategory = category;
+        const categoryMap = {
+            'window': 'Windows',
+            'windows': 'Windows',
+            'door': 'Doors',
+            'doors': 'Doors',
+            'wall': 'Walls',
+            'walls': 'Walls',
+            'floor': 'Floors',
+            'floors': 'Floors',
+            'ceiling': 'Ceilings',
+            'ceilings': 'Ceilings',
+            'roof': 'Roofs',
+            'roofs': 'Roofs',
+            'all': 'All'
+        };
+        
+        const lowerCategory = category.toLowerCase();
+        if (categoryMap[lowerCategory]) {
+            normalizedCategory = categoryMap[lowerCategory];
+            log(`Category normalized: "${category}" → "${normalizedCategory}"`);
+        }
+
         // Generate job ID
         const jobId = crypto.randomBytes(16).toString('hex');
         
-        // Create job record
+        // Create job record with normalized category
         const job = {
             id: jobId,
             status: JobStatus.PENDING,
-            category,
+            category: normalizedCategory,
             gradeType,
             includeTypes,
             outputPath,
@@ -318,7 +345,7 @@ app.post('/api/grade-families-async', async (req, res) => {
 
         jobs.set(jobId, job);
 
-        log(`Created async job ${jobId}: category=${category}, gradeType=${gradeType}`);
+        log(`Created async job ${jobId}: category=${normalizedCategory}, gradeType=${gradeType}`);
 
         // Start processing in background
         setImmediate(() => processAsyncJob(jobId));
@@ -344,10 +371,13 @@ app.post('/api/grade-families-async', async (req, res) => {
 /**
  * GET /api/jobs/:jobId
  * Get job status and results
+ * ALWAYS returns summary by default to avoid Copilot Studio payload size limit
+ * Query param: ?full=true to get complete results (for debugging)
  */
 app.get('/api/jobs/:jobId', (req, res) => {
     const jobId = req.params.jobId;
     const job = jobs.get(jobId);
+    const fullResults = req.query.full === 'true';
 
     if (!job) {
         return res.status(404).json({
@@ -358,15 +388,37 @@ app.get('/api/jobs/:jobId', (req, res) => {
 
     // Return different responses based on status
     if (job.status === JobStatus.COMPLETED) {
+        // Return full results only if explicitly requested
+        if (fullResults && job.result) {
+            return res.json({
+                success: true,
+                jobId: job.id,
+                status: job.status,
+                result: job.result,
+                createdAt: job.createdAt,
+                startedAt: job.startedAt,
+                completedAt: job.completedAt,
+                duration: new Date(job.completedAt) - new Date(job.startedAt),
+                note: 'Full results. Use without ?full=true for summary.'
+            });
+        }
+        
+        // Default: Return summary only (for Copilot Studio compatibility)
         return res.json({
             success: true,
             jobId: job.id,
             status: job.status,
-            result: job.result,
+            totalElements: job.result.totalElements,
+            avgScore: job.result.avgScore,
+            gradeDistribution: job.result.gradeDistribution,
+            csvFilePath: job.result.csvFilePath,
+            revitFileName: job.result.revitFileName,
+            timestamp: job.result.timestamp,
             createdAt: job.createdAt,
             startedAt: job.startedAt,
             completedAt: job.completedAt,
-            duration: new Date(job.completedAt) - new Date(job.startedAt)
+            duration: new Date(job.completedAt) - new Date(job.startedAt),
+            note: 'Summary results (default). Use ?full=true for complete details.'
         });
     } else if (job.status === JobStatus.FAILED) {
         return res.json({
@@ -526,6 +578,30 @@ app.post('/api/grade-families-sync', async (req, res) => {
 
         log(`Received grading request: category=${category}, gradeType=${gradeType}, includeTypes=${includeTypes}`);
 
+        // Normalize category name (handle common variations)
+        let normalizedCategory = category;
+        const categoryMap = {
+            'window': 'Windows',
+            'windows': 'Windows',
+            'door': 'Doors',
+            'doors': 'Doors',
+            'wall': 'Walls',
+            'walls': 'Walls',
+            'floor': 'Floors',
+            'floors': 'Floors',
+            'ceiling': 'Ceilings',
+            'ceilings': 'Ceilings',
+            'roof': 'Roofs',
+            'roofs': 'Roofs',
+            'all': 'All'
+        };
+        
+        const lowerCategory = category.toLowerCase();
+        if (categoryMap[lowerCategory]) {
+            normalizedCategory = categoryMap[lowerCategory];
+            log(`Category normalized: "${category}" → "${normalizedCategory}"`);
+        }
+
         // Validate inputs
         if (!['quick', 'detailed'].includes(gradeType)) {
             return res.status(400).json({
@@ -534,8 +610,8 @@ app.post('/api/grade-families-sync', async (req, res) => {
             });
         }
 
-        // Call MCP grading
-        const result = await callMCPGrading(category, gradeType, includeTypes, outputPath);
+        // Call MCP grading with normalized category
+        const result = await callMCPGrading(normalizedCategory, gradeType, includeTypes, outputPath);
 
         const duration = Date.now() - startTime;
         log(`Grading completed successfully in ${duration}ms: ${result.totalElements} elements, avg ${result.avgScore}`);

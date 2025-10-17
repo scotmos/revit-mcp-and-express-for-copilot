@@ -2,8 +2,8 @@
   "openapi": "3.0.1",
   "info": {
     "title": "Revit MCP API",
-    "description": "Complete API for Revit Model Context Protocol - BIM automation including family grading, element creation, modification, and querying. Version 2.1.0 adds async job pattern to work around Power Platform's 240-second timeout limit. Use with Microsoft Copilot Studio, Power Automate, and Power Apps.",
-    "version": "2.1.0",
+    "description": "Complete API for Revit Model Context Protocol - BIM automation including family grading, element creation, modification, and querying. Version 2.2.0 adds summary query parameter to avoid Copilot Studio payload size limit. Use with Microsoft Copilot Studio, Power Automate, and Power Apps.",
+    "version": "2.2.0",
     "contact": {
       "name": "Revit MCP Support",
       "url": "https://github.com/scotmos/revit-mcp-and-express-for-copilot"
@@ -224,7 +224,7 @@
     "/api/jobs/{jobId}": {
       "get": {
         "summary": "Get Job Status and Results",
-        "description": "Poll this endpoint to check job status. Returns 'pending', 'processing', 'completed', or 'failed'. When status is 'completed', the response includes full grading results. **Poll every 5-10 seconds** until completed.",
+        "description": "Poll this endpoint to check job status. Returns 'pending', 'processing', 'completed', or 'failed'. When status is 'completed', the response includes full grading results. **Poll every 5-10 seconds** until completed. Use ?summary=true to avoid Copilot Studio payload size errors.",
         "operationId": "getJobStatus",
         "tags": ["Async"],
         "parameters": [
@@ -236,6 +236,17 @@
             "schema": {
               "type": "string",
               "example": "a34750eba629fa17ebd0e2b1bb02d1f2"
+            }
+          },
+          {
+            "name": "summary",
+            "in": "query",
+            "required": true,
+            "description": "Return summary results only to avoid payload size limit in Copilot Studio. Always set to 'true'.",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"],
+              "default": "true"
             }
           }
         ],
