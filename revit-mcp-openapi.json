@@ -641,12 +641,43 @@
             "example": "completed"
           },
           "result": {
+            "type": "object",
             "description": "Full grading results (only present when status is 'completed')",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/GradingResult"
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "totalElements": {
+                "type": "integer"
+              },
+              "avgScore": {
+                "type": "number"
+              },
+              "csvFilePath": {
+                "type": "string"
+              },
+              "gradeDistribution": {
+                "type": "object"
+              },
+              "categories": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "timestamp": {
+                "type": "string"
+              },
+              "revitFileName": {
+                "type": "string"
+              },
+              "duration": {
+                "type": "integer"
+              },
+              "summaryStats": {
+                "type": "object"
               }
-            ]
+            }
           },
           "error": {
             "type": "string",
