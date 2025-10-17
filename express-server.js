@@ -277,11 +277,11 @@ app.get('/health', (req, res) => {
 });
 
 /**
- * POST /api/grade-families/async
- * Start async family grading job
+ * POST /api/grade-families-async
+ * Start async family grading job (RECOMMENDED FOR POWER PLATFORM)
  * Returns immediately with job ID for polling
  */
-app.post('/api/grade-families/async', async (req, res) => {
+app.post('/api/grade-families-async', async (req, res) => {
     try {
         const {
             category = 'All',
@@ -488,8 +488,9 @@ async function processAsyncJob(jobId) {
 }
 
 /**
- * POST /api/grade-families
- * Grade all families by category
+ * POST /api/grade-families-sync
+ * Grade all families by category (SYNCHRONOUS)
+ * WARNING: May timeout in Power Platform for large projects
  * 
  * Body:
  * {
@@ -511,7 +512,7 @@ async function processAsyncJob(jobId) {
  *   "revitFileName": "SnowdonTowers.rvt"
  * }
  */
-app.post('/api/grade-families', async (req, res) => {
+app.post('/api/grade-families-sync', async (req, res) => {
     const startTime = Date.now();
     
     try {
@@ -637,11 +638,11 @@ app.get('/api/info', (req, res) => {
             // Health
             'GET /health': 'Health check',
             
-            // Synchronous (for fast operations, <4 min)
-            'POST /api/grade-families': 'Grade families by category (synchronous)',
+            // Grading endpoints (equal URL lengths)
+            'POST /api/grade-families-sync': 'Grade families (synchronous - fast, may timeout)',
+            'POST /api/grade-families-async': 'Grade families (asynchronous - safe, recommended)',
             
-            // Asynchronous (for long operations, Power Platform compatible)
-            'POST /api/grade-families/async': 'Start async grading job',
+            // Async job management
             'GET /api/jobs/:jobId': 'Get job status and results',
             'GET /api/jobs': 'List all jobs (optional: ?status=completed&limit=50)',
             'DELETE /api/jobs/:jobId': 'Delete a completed job',
@@ -650,9 +651,9 @@ app.get('/api/info', (req, res) => {
             'GET /api/info': 'This endpoint'
         },
         examples: {
-            'Synchronous grading (fast)': {
+            'Synchronous grading (fast, may timeout)': {
                 method: 'POST',
-                url: '/api/grade-families',
+                url: '/api/grade-families-sync',
                 body: {
                     category: 'Doors',
                     gradeType: 'quick',
@@ -660,11 +661,11 @@ app.get('/api/info', (req, res) => {
                 },
                 note: 'Use for small projects (<4 min). Power Platform will timeout after 240 seconds.'
             },
-            'Async grading (Power Platform safe)': {
+            'Async grading (Power Platform safe) - RECOMMENDED': {
                 step1: {
                     description: 'Start job',
                     method: 'POST',
-                    url: '/api/grade-families/async',
+                    url: '/api/grade-families-async',
                     body: {
                         category: 'All',
                         gradeType: 'detailed',

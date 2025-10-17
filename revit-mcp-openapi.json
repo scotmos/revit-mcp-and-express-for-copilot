@@ -57,11 +57,11 @@
         }
       }
     },
-    "/api/grade-families": {
+    "/api/grade-families-sync": {
       "post": {
-        "summary": "Grade All Families by Category",
-        "description": "Grade Revit families by category and generate quality report with CSV output. Analyzes geometry complexity, import sources, and provides recommendations.",
-        "operationId": "gradeFamilies",
+        "summary": "Grade Families (Synchronous)",
+        "description": "Grade Revit families synchronously. Returns results immediately. WARNING: Will timeout after 240 seconds in Power Platform. Use /api/grade-families-async for large projects.",
+        "operationId": "gradeFamiliesSync",
         "requestBody": {
           "required": true,
           "content": {
@@ -181,11 +181,11 @@
         }
       }
     },
-    "/api/grade-families/async": {
+    "/api/grade-families-async": {
       "post": {
-        "summary": "Start Async Family Grading Job",
+        "summary": "Grade Families (Asynchronous) - RECOMMENDED",
         "description": "**RECOMMENDED FOR POWER PLATFORM** - Starts an asynchronous grading job and returns immediately with a job ID. This endpoint never exceeds Power Platform's 240-second timeout limit. Use GET /api/jobs/{jobId} to poll for results. Ideal for large projects or detailed analysis.",
-        "operationId": "startAsyncGrading",
+        "operationId": "gradeFamiliesAsync",
         "tags": ["Grading", "Async"],
         "requestBody": {
           "required": true,
