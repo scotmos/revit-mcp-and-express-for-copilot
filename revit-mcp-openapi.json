@@ -1,0 +1,760 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Revit MCP API",
+    "description": "Complete API for Revit Model Context Protocol - BIM automation including family grading, element creation, modification, and querying. Version 2.1.0 adds async job pattern to work around Power Platform's 240-second timeout limit. Use with Microsoft Copilot Studio, Power Automate, and Power Apps.",
+    "version": "2.1.0",
+    "contact": {
+      "name": "Revit MCP Support",
+      "url": "https://github.com/scotmos/revit-mcp-and-express-for-copilot"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://0072900a4031.ngrok-free.app",
+      "description": "ngrok Tunnel - Update with your ngrok URL"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Development"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Check if the Express server is running and healthy",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "Server is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "healthy"
+                    },
+                    "service": {
+                      "type": "string",
+                      "example": "Revit MCP Express Server"
+                    },
+                    "version": {
+                      "type": "string",
+                      "example": "2.0.1"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/grade-families": {
+      "post": {
+        "summary": "Grade All Families by Category",
+        "description": "Grade Revit families by category and generate quality report with CSV output. Analyzes geometry complexity, import sources, and provides recommendations.",
+        "operationId": "gradeFamilies",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "description": "Revit category name (e.g., Doors, Windows, Walls) or 'All' for all categories",
+                    "default": "All",
+                    "example": "Doors"
+                  },
+                  "gradeType": {
+                    "type": "string",
+                    "description": "Analysis depth: 'quick' for fast analysis or 'detailed' for comprehensive",
+                    "enum": ["quick", "detailed"],
+                    "default": "detailed",
+                    "example": "quick"
+                  },
+                  "includeTypes": {
+                    "type": "boolean",
+                    "description": "Include all type instances (true) or only unique types (false)",
+                    "default": true,
+                    "example": true
+                  },
+                  "outputPath": {
+                    "type": "string",
+                    "description": "Optional custom output path for CSV file. If not provided, saves to temp folder with auto-generated name.",
+                    "example": "C:\\Projects\\FamilyGrades.csv"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Grading completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GradingResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error or Revit error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tools/grade_all_families_by_category": {
+      "post": {
+        "summary": "Grade Families (Legacy Endpoint)",
+        "description": "Backward compatible endpoint for Flask-based connectors. Same functionality as /api/grade-families",
+        "operationId": "gradeFamiliesLegacy",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GradingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Grading completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GradingResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/grade-families/async": {
+      "post": {
+        "summary": "Start Async Family Grading Job",
+        "description": "**RECOMMENDED FOR POWER PLATFORM** - Starts an asynchronous grading job and returns immediately with a job ID. This endpoint never exceeds Power Platform's 240-second timeout limit. Use GET /api/jobs/{jobId} to poll for results. Ideal for large projects or detailed analysis.",
+        "operationId": "startAsyncGrading",
+        "tags": ["Grading", "Async"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GradingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Job created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncJobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/{jobId}": {
+      "get": {
+        "summary": "Get Job Status and Results",
+        "description": "Poll this endpoint to check job status. Returns 'pending', 'processing', 'completed', or 'failed'. When status is 'completed', the response includes full grading results. **Poll every 5-10 seconds** until completed.",
+        "operationId": "getJobStatus",
+        "tags": ["Async"],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "description": "Job ID returned from POST /api/grade-families/async",
+            "schema": {
+              "type": "string",
+              "example": "a34750eba629fa17ebd0e2b1bb02d1f2"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job status retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Completed Job",
+        "description": "Remove a job from the server's job storage. Use this to clean up completed or failed jobs.",
+        "operationId": "deleteJob",
+        "tags": ["Async"],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "description": "Job ID to delete",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Job deleted successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs": {
+      "get": {
+        "summary": "List All Jobs",
+        "description": "Get a list of all jobs with optional filtering by status. Useful for monitoring and debugging.",
+        "operationId": "listJobs",
+        "tags": ["Async"],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Filter by job status",
+            "schema": {
+              "type": "string",
+              "enum": ["pending", "processing", "completed", "failed"]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of jobs to return",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "example": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job list retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/info": {
+      "get": {
+        "summary": "Get Server Information",
+        "description": "Returns server information, available endpoints, and usage examples",
+        "operationId": "getServerInfo",
+        "responses": {
+          "200": {
+            "description": "Server information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "endpoints": {
+                      "type": "object"
+                    },
+                    "examples": {
+                      "type": "object"
+                    },
+                    "notes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "GradingRequest": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Revit category name or 'All'",
+            "default": "All",
+            "example": "Doors"
+          },
+          "gradeType": {
+            "type": "string",
+            "description": "Analysis depth",
+            "enum": ["quick", "detailed"],
+            "default": "detailed",
+            "example": "quick"
+          },
+          "includeTypes": {
+            "type": "boolean",
+            "description": "Include all type instances",
+            "default": true,
+            "example": true
+          },
+          "outputPath": {
+            "type": "string",
+            "description": "Optional custom CSV output path",
+            "example": "C:\\Projects\\FamilyGrades.csv"
+          }
+        }
+      },
+      "GradingResult": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation succeeded",
+            "example": true
+          },
+          "totalElements": {
+            "type": "integer",
+            "description": "Total number of family instances graded",
+            "example": 142
+          },
+          "avgScore": {
+            "type": "number",
+            "format": "float",
+            "description": "Average quality score (0-100)",
+            "example": 96.5
+          },
+          "csvFilePath": {
+            "type": "string",
+            "description": "Full path to the generated CSV file",
+            "example": "C:\\Users\\...\\RevitFamilyGrades_Project1_20251017_123456.csv"
+          },
+          "gradeDistribution": {
+            "type": "object",
+            "description": "Count of families by grade letter",
+            "properties": {
+              "A": {
+                "type": "integer",
+                "example": 132
+              },
+              "B": {
+                "type": "integer",
+                "example": 8
+              },
+              "C": {
+                "type": "integer",
+                "example": 2
+              },
+              "D": {
+                "type": "integer",
+                "example": 0
+              },
+              "F": {
+                "type": "integer",
+                "example": 0
+              },
+              "ERROR": {
+                "type": "integer",
+                "example": 0
+              }
+            }
+          },
+          "categories": {
+            "type": "array",
+            "description": "Array of category summaries",
+            "items": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "example": ["Doors", 142, 96.5]
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "Timestamp of analysis completion",
+            "example": "2025-10-17 12:34:56"
+          },
+          "revitFileName": {
+            "type": "string",
+            "description": "Name of the Revit project file",
+            "example": "SnowdonTowers.rvt"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Processing time in milliseconds",
+            "example": 426
+          },
+          "summaryStats": {
+            "type": "object",
+            "description": "Detailed summary statistics",
+            "properties": {
+              "categories": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "avgScore": {
+                      "type": "number"
+                    }
+                  }
+                }
+              },
+              "gradeDistribution": {
+                "type": "object"
+              },
+              "avgScore": {
+                "type": "number"
+              },
+              "topIssues": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "importSourceBreakdown": {
+                "type": "object",
+                "properties": {
+                  "nativeRevit": {
+                    "type": "integer"
+                  },
+                  "satImports": {
+                    "type": "integer"
+                  },
+                  "meshImports": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": ["success", "totalElements", "avgScore"]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message",
+            "example": "gradeType must be 'quick' or 'detailed'"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Time taken before error occurred (ms)",
+            "example": 150
+          }
+        },
+        "required": ["success", "error"]
+      },
+      "AsyncJobResponse": {
+        "type": "object",
+        "description": "Response when starting an async job",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "jobId": {
+            "type": "string",
+            "description": "Unique job identifier for polling",
+            "example": "a34750eba629fa17ebd0e2b1bb02d1f2"
+          },
+          "status": {
+            "type": "string",
+            "description": "Initial job status",
+            "enum": ["pending"],
+            "example": "pending"
+          },
+          "message": {
+            "type": "string",
+            "example": "Job created successfully. Use GET /api/jobs/{jobId} to check status."
+          },
+          "pollUrl": {
+            "type": "string",
+            "description": "URL to poll for job status",
+            "example": "/api/jobs/a34750eba629fa17ebd0e2b1bb02d1f2"
+          }
+        },
+        "required": ["success", "jobId", "status", "pollUrl"]
+      },
+      "JobStatusResponse": {
+        "type": "object",
+        "description": "Job status and results (when completed)",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "jobId": {
+            "type": "string",
+            "example": "a34750eba629fa17ebd0e2b1bb02d1f2"
+          },
+          "status": {
+            "type": "string",
+            "description": "Current job status",
+            "enum": ["pending", "processing", "completed", "failed"],
+            "example": "completed"
+          },
+          "result": {
+            "description": "Full grading results (only present when status is 'completed')",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GradingResult"
+              }
+            ]
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message (only present when status is 'failed')"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-10-17T17:08:17.628Z"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-10-17T17:08:17.630Z"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Completion timestamp (only when completed or failed)",
+            "example": "2025-10-17T17:08:18.411Z"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Total processing time in milliseconds (only when completed)",
+            "example": 781
+          }
+        },
+        "required": ["success", "jobId", "status"]
+      },
+      "JobListResponse": {
+        "type": "object",
+        "description": "List of jobs with summary information",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of jobs in storage",
+            "example": 5
+          },
+          "filtered": {
+            "type": "integer",
+            "description": "Number of jobs matching filter criteria",
+            "example": 3
+          },
+          "jobs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "jobId": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["pending", "processing", "completed", "failed"]
+                },
+                "category": {
+                  "type": "string"
+                },
+                "gradeType": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        },
+        "required": ["success", "total", "filtered", "jobs"]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Server health and status endpoints"
+    },
+    {
+      "name": "Grading",
+      "description": "Family quality grading operations (synchronous and asynchronous)"
+    },
+    {
+      "name": "Async",
+      "description": "Asynchronous job management - RECOMMENDED for Power Platform to avoid 240-second timeout"
+    },
+    {
+      "name": "Information",
+      "description": "Server and API information"
+    }
+  ],
+  "x-copilot-guidance": {
+    "whenToUseAsync": {
+      "description": "Power Platform (Copilot Studio, Power Automate, Power Apps Custom Connectors) has a hard 240-second (4 minute) timeout limit. Use async endpoints for any operation that might take longer than 3 minutes.",
+      "recommendations": [
+        "Use ASYNC endpoints for: detailed grading, 'All' category, large projects (>100 families)",
+        "Use SYNC endpoints for: quick grading, specific small categories (Doors, Windows), small projects",
+        "When in doubt, use ASYNC - it's safer and won't timeout"
+      ],
+      "implementation": "In Copilot Studio or Power Automate, create a flow that: 1) Calls POST /api/grade-families/async, 2) Waits 10 seconds, 3) Calls GET /api/jobs/{jobId}, 4) If status != 'completed', loop back to step 2, 5) Process results when completed"
+    }
+  }
+}

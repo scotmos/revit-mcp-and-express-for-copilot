@@ -16,6 +16,7 @@ const express = require('express');
 const cors = require('cors');
 const { spawn } = require('child_process');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,6 +24,17 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Job storage for async operations
+const jobs = new Map();
+
+// Job statuses
+const JobStatus = {
+    PENDING: 'pending',
+    PROCESSING: 'processing',
+    COMPLETED: 'completed',
+    FAILED: 'failed'
+};
 
 // Path to Node MCP server
 const MCP_SERVER_PATH = path.join('C:', 'Users', 'ScottM', 'source', 'repos', 'MCP', 'revit-mcp', 'build', 'index.js');
@@ -255,10 +267,225 @@ app.get('/health', (req, res) => {
     res.json({
         status: 'healthy',
         service: 'Revit MCP Express Server',
-        version: '2.0.0',
-        timestamp: new Date().toISOString()
+        version: '2.1.0',
+        timestamp: new Date().toISOString(),
+        features: {
+            sync: true,
+            async: true
+        }
     });
 });
+
+/**
+ * POST /api/grade-families/async
+ * Start async family grading job
+ * Returns immediately with job ID for polling
+ */
+app.post('/api/grade-families/async', async (req, res) => {
+    try {
+        const {
+            category = 'All',
+            gradeType = 'detailed',
+            includeTypes = true,
+            outputPath = ''
+        } = req.body;
+
+        // Validate inputs
+        if (!['quick', 'detailed'].includes(gradeType)) {
+            return res.status(400).json({
+                success: false,
+                error: 'gradeType must be "quick" or "detailed"'
+            });
+        }
+
+        // Generate job ID
+        const jobId = crypto.randomBytes(16).toString('hex');
+        
+        // Create job record
+        const job = {
+            id: jobId,
+            status: JobStatus.PENDING,
+            category,
+            gradeType,
+            includeTypes,
+            outputPath,
+            createdAt: new Date().toISOString(),
+            startedAt: null,
+            completedAt: null,
+            result: null,
+            error: null
+        };
+
+        jobs.set(jobId, job);
+
+        log(`Created async job ${jobId}: category=${category}, gradeType=${gradeType}`);
+
+        // Start processing in background
+        setImmediate(() => processAsyncJob(jobId));
+
+        // Return job ID immediately
+        res.json({
+            success: true,
+            jobId: jobId,
+            status: JobStatus.PENDING,
+            message: 'Job created successfully. Use GET /api/jobs/{jobId} to check status.',
+            pollUrl: `/api/jobs/${jobId}`
+        });
+
+    } catch (error) {
+        log(`Error creating async job: ${error.message}`, 'ERROR');
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/jobs/:jobId
+ * Get job status and results
+ */
+app.get('/api/jobs/:jobId', (req, res) => {
+    const jobId = req.params.jobId;
+    const job = jobs.get(jobId);
+
+    if (!job) {
+        return res.status(404).json({
+            success: false,
+            error: 'Job not found'
+        });
+    }
+
+    // Return different responses based on status
+    if (job.status === JobStatus.COMPLETED) {
+        return res.json({
+            success: true,
+            jobId: job.id,
+            status: job.status,
+            result: job.result,
+            createdAt: job.createdAt,
+            startedAt: job.startedAt,
+            completedAt: job.completedAt,
+            duration: new Date(job.completedAt) - new Date(job.startedAt)
+        });
+    } else if (job.status === JobStatus.FAILED) {
+        return res.json({
+            success: false,
+            jobId: job.id,
+            status: job.status,
+            error: job.error,
+            createdAt: job.createdAt,
+            startedAt: job.startedAt,
+            completedAt: job.completedAt
+        });
+    } else {
+        // Still processing or pending
+        return res.json({
+            success: true,
+            jobId: job.id,
+            status: job.status,
+            message: job.status === JobStatus.PROCESSING ? 'Job is currently processing' : 'Job is queued',
+            createdAt: job.createdAt,
+            startedAt: job.startedAt
+        });
+    }
+});
+
+/**
+ * GET /api/jobs
+ * List all jobs (with optional status filter)
+ */
+app.get('/api/jobs', (req, res) => {
+    const { status, limit = 50 } = req.query;
+    
+    let jobsList = Array.from(jobs.values());
+    
+    // Filter by status if provided
+    if (status) {
+        jobsList = jobsList.filter(job => job.status === status);
+    }
+    
+    // Sort by creation date (newest first)
+    jobsList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    // Limit results
+    jobsList = jobsList.slice(0, parseInt(limit));
+    
+    res.json({
+        success: true,
+        total: jobs.size,
+        filtered: jobsList.length,
+        jobs: jobsList.map(job => ({
+            jobId: job.id,
+            status: job.status,
+            category: job.category,
+            gradeType: job.gradeType,
+            createdAt: job.createdAt,
+            completedAt: job.completedAt
+        }))
+    });
+});
+
+/**
+ * DELETE /api/jobs/:jobId
+ * Delete a job (cleanup)
+ */
+app.delete('/api/jobs/:jobId', (req, res) => {
+    const jobId = req.params.jobId;
+    const job = jobs.get(jobId);
+
+    if (!job) {
+        return res.status(404).json({
+            success: false,
+            error: 'Job not found'
+        });
+    }
+
+    jobs.delete(jobId);
+    log(`Deleted job ${jobId}`);
+
+    res.json({
+        success: true,
+        message: 'Job deleted successfully'
+    });
+});
+
+/**
+ * Background job processor
+ */
+async function processAsyncJob(jobId) {
+    const job = jobs.get(jobId);
+    if (!job) return;
+
+    try {
+        job.status = JobStatus.PROCESSING;
+        job.startedAt = new Date().toISOString();
+        log(`Processing job ${jobId}: category=${job.category}`);
+
+        // Call the grading function
+        const result = await callMCPGrading(
+            job.category,
+            job.gradeType,
+            job.includeTypes,
+            job.outputPath
+        );
+
+        // Job completed successfully
+        job.status = JobStatus.COMPLETED;
+        job.completedAt = new Date().toISOString();
+        job.result = result;
+        
+        log(`Job ${jobId} completed successfully: ${result.totalElements} elements, avg ${result.avgScore}`);
+
+    } catch (error) {
+        // Job failed
+        job.status = JobStatus.FAILED;
+        job.completedAt = new Date().toISOString();
+        job.error = error.message;
+        
+        log(`Job ${jobId} failed: ${error.message}`, 'ERROR');
+    }
+}
 
 /**
  * POST /api/grade-families
@@ -404,39 +631,85 @@ app.post('/api/tools/grade_all_families_by_category', async (req, res) => {
 app.get('/api/info', (req, res) => {
     res.json({
         name: 'Revit MCP Express Server',
-        version: '2.0.0',
-        description: 'HTTP API for grading Revit families',
+        version: '2.1.0',
+        description: 'HTTP API for grading Revit families with async support',
         endpoints: {
+            // Health
             'GET /health': 'Health check',
-            'POST /api/grade-families': 'Grade families by category',
+            
+            // Synchronous (for fast operations, <4 min)
+            'POST /api/grade-families': 'Grade families by category (synchronous)',
+            
+            // Asynchronous (for long operations, Power Platform compatible)
+            'POST /api/grade-families/async': 'Start async grading job',
+            'GET /api/jobs/:jobId': 'Get job status and results',
+            'GET /api/jobs': 'List all jobs (optional: ?status=completed&limit=50)',
+            'DELETE /api/jobs/:jobId': 'Delete a completed job',
+            
+            // Information
             'GET /api/info': 'This endpoint'
         },
         examples: {
-            'Quick grading': {
+            'Synchronous grading (fast)': {
                 method: 'POST',
                 url: '/api/grade-families',
                 body: {
                     category: 'Doors',
                     gradeType: 'quick',
                     includeTypes: true
-                }
+                },
+                note: 'Use for small projects (<4 min). Power Platform will timeout after 240 seconds.'
             },
-            'Detailed grading': {
-                method: 'POST',
-                url: '/api/grade-families',
-                body: {
-                    category: 'All',
-                    gradeType: 'detailed',
-                    includeTypes: true
+            'Async grading (Power Platform safe)': {
+                step1: {
+                    description: 'Start job',
+                    method: 'POST',
+                    url: '/api/grade-families/async',
+                    body: {
+                        category: 'All',
+                        gradeType: 'detailed',
+                        includeTypes: true
+                    },
+                    returns: {
+                        success: true,
+                        jobId: 'abc123...',
+                        status: 'pending',
+                        pollUrl: '/api/jobs/abc123...'
+                    }
+                },
+                step2: {
+                    description: 'Poll for results (every 5-10 seconds)',
+                    method: 'GET',
+                    url: '/api/jobs/abc123...',
+                    returns_when_complete: {
+                        success: true,
+                        status: 'completed',
+                        result: {
+                            totalElements: 142,
+                            avgScore: 96.4,
+                            csvFilePath: 'C:\\Users\\...\\RevitFamilyGrades.csv'
+                        }
+                    }
                 }
             }
         },
         notes: [
-            'Supports timeouts up to 10 minutes for large models',
-            'Returns full JSON response with CSV file path',
-            'Compatible with Power Automate and Copilot Actions',
+            'v2.1.0 adds async job pattern for Power Platform timeout workaround',
+            'Synchronous endpoint: Use for small projects, returns results immediately',
+            'Async endpoints: Use for large projects, poll for results',
+            'Power Platform has 240-second (4 minute) timeout limit',
+            'Async pattern ensures client never waits more than polling interval',
+            'Job storage is in-memory (jobs lost on server restart)',
+            'Compatible with Power Automate, Copilot Actions, and Custom Connectors',
             'CORS enabled for browser access'
-        ]
+        ],
+        currentJobs: {
+            total: jobs.size,
+            pending: Array.from(jobs.values()).filter(j => j.status === JobStatus.PENDING).length,
+            processing: Array.from(jobs.values()).filter(j => j.status === JobStatus.PROCESSING).length,
+            completed: Array.from(jobs.values()).filter(j => j.status === JobStatus.COMPLETED).length,
+            failed: Array.from(jobs.values()).filter(j => j.status === JobStatus.FAILED).length
+        }
     });
 });
 
